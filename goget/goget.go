@@ -62,12 +62,14 @@ func getWriter() writers.Writer {
 func getPrinter(w writers.Writer) printers.Printer {
 	var p printers.Printer
 	switch {
+	case Flags.OutputFormat == "json":
+		p = printers.NewJsonPrinter(w)
 	default:
 		p = printers.NewStringPrinter(w)
 	}
 	return p
 }
-func ExecCmd(args []string) {
+func Run(args []string) {
 	restArgs, err := parseFlags(args)
 
 	w := getWriter()

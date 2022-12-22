@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	goget.ExecCmd(os.Args[1:])
+	goget.Run(os.Args[1:])
 }

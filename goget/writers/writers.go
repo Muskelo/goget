@@ -84,7 +84,6 @@ type FileWriter struct {
 
 func NewFileWriter(fn string) *FileWriter {
 	return &FileWriter{FN: fn}
-
 }
 func (w *FileWriter) Start() {
 	file, err := os.Create(w.FN)
@@ -97,28 +96,32 @@ func (w *FileWriter) Stop() {
 	w.file.Close()
 }
 
+func (w *FileWriter) cleanFile() {
+	if err := w.file.Truncate(0); err != nil {
+		panic(err)
+	}
+	if _, err := w.file.Seek(0, 0); err != nil {
+		panic(err)
+	}
+
+}
+
 func (w *FileWriter) Write(a ...any) {
-    if err := w.file.Truncate(0); err != nil {
-        panic(err)
-    }
+	w.cleanFile()
 	_, err := w.file.WriteString(fmt.Sprint(a...))
 	if err != nil {
 		panic(err)
 	}
 }
 func (w *FileWriter) Writef(format string, a ...any) {
-    if err := w.file.Truncate(0); err != nil {
-        panic(err)
-    }
+	w.cleanFile()
 	_, err := w.file.WriteString(fmt.Sprintf(format, a...))
 	if err != nil {
 		panic(err)
 	}
 }
 func (w *FileWriter) Writeln(a ...any) {
-    if err := w.file.Truncate(0); err != nil {
-        panic(err)
-    }
+	w.cleanFile()
 	_, err := w.file.WriteString(fmt.Sprintln(a...))
 	if err != nil {
 		panic(err)
