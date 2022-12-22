@@ -11,9 +11,10 @@ import (
 )
 
 type CommonFlags struct {
-	Help          bool
-	DisableOutput bool
-	FormatOutput  string
+	Help           bool
+	OutputDisabled bool
+	OutputFormat   string
+	OutputFile     string
 }
 
 var (
@@ -37,8 +38,9 @@ func parseFlags(args []string) ([]string, error) {
 
 	flagSet := flag.NewFlagSet("common", flag.PanicOnError)
 	flagSet.BoolVar(&Flags.Help, "help", false, "Help")
-	flagSet.BoolVar(&Flags.DisableOutput, "disable-output", false, "Disable output")
-	flagSet.StringVar(&Flags.FormatOutput, "format-output", "string", "Output formating output")
+	flagSet.BoolVar(&Flags.OutputDisabled, "output-disabled", false, "Disable output")
+	flagSet.StringVar(&Flags.OutputFormat, "output-format", "string", "Output formating output")
+	flagSet.StringVar(&Flags.OutputFile, "output-file", "", "Output file output")
 
 	if err := flagSet.Parse(args); err != nil {
 		return []string{}, err
@@ -48,8 +50,10 @@ func parseFlags(args []string) ([]string, error) {
 func getWriter() writers.Writer {
 	var w writers.Writer
 	switch {
-	case Flags.DisableOutput:
+	case Flags.OutputDisabled:
 		w = writers.NewQuiteWriter()
+	case Flags.OutputFile != "":
+		w = writers.NewFileWriter(Flags.OutputFile)
 	default:
 		w = writers.NewConsoleWriter()
 	}

@@ -2,6 +2,7 @@ package writers
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gosuri/uilive"
@@ -13,7 +14,6 @@ type Writer interface {
 	Write(a ...any)
 	Writef(format string, a ...any)
 	Writeln(a ...any)
-	WriteErr(error)
 }
 
 // Write to console using uilive writer
@@ -55,13 +55,6 @@ func (w *ConsoleWriter) Writeln(a ...any) {
 	}
 	w.uiliveWriter.Flush()
 }
-func (w *ConsoleWriter) WriteErr(err error) {
-	_, printErr := fmt.Fprintf(w.uiliveWriter, "Err: %v\n", err)
-	if printErr != nil {
-		panic(err)
-	}
-	w.uiliveWriter.Flush()
-}
 
 // Don't write anything
 type QuiteWriter struct {
@@ -82,5 +75,52 @@ func (w *QuiteWriter) Writef(format string, a ...any) {
 }
 func (w *QuiteWriter) Writeln(a ...any) {
 }
-func (w *QuiteWriter) WriteErr(err error) {
+
+// Write to file
+type FileWriter struct {
+	FN   string
+	file *os.File
+}
+
+func NewFileWriter(fn string) *FileWriter {
+	return &FileWriter{FN: fn}
+
+}
+func (w *FileWriter) Start() {
+	file, err := os.Create(w.FN)
+	if err != nil {
+		panic(err)
+	}
+	w.file = file
+}
+func (w *FileWriter) Stop() {
+	w.file.Close()
+}
+
+func (w *FileWriter) Write(a ...any) {
+    if err := w.file.Truncate(0); err != nil {
+        panic(err)
+    }
+	_, err := w.file.WriteString(fmt.Sprint(a...))
+	if err != nil {
+		panic(err)
+	}
+}
+func (w *FileWriter) Writef(format string, a ...any) {
+    if err := w.file.Truncate(0); err != nil {
+        panic(err)
+    }
+	_, err := w.file.WriteString(fmt.Sprintf(format, a...))
+	if err != nil {
+		panic(err)
+	}
+}
+func (w *FileWriter) Writeln(a ...any) {
+    if err := w.file.Truncate(0); err != nil {
+        panic(err)
+    }
+	_, err := w.file.WriteString(fmt.Sprintln(a...))
+	if err != nil {
+		panic(err)
+	}
 }
