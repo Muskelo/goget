@@ -16,63 +16,31 @@ func TestNewDownload(t *testing.T) {
 	type args struct {
 		rawUrl  string
 		rawPath string
-		changed chan *Download
 	}
 	type test struct {
 		name    string
 		args    args
-		want    *Download
+		want    Download
 		wantErr bool
 	}
 	tests := []test{}
 
 	{
 		rawUrl := "http://speedtest.ftp.otenet.gr/files/test1Mb.db"
-		rawPath := path.Join(tmpDir, "file.db")
+		rawPath := path.Join(tmpDir, "output.db")
 		url_, _ := url.Parse(rawUrl)
 
 		tests = append(tests, test{
-			name: "default usage",
+			name: "create http download",
 			args: args{
 				rawUrl,
 				rawPath,
-				nil,
 			},
-			want: &Download{
-				URL:  url_,
-				Path: rawPath,
-			},
-			wantErr: false,
-		})
-	}
-	{
-		rawUrl := "http://speedtest.ftp.otenet.gr/files/test1Mb.db"
-		rawPath := tmpDir
-		url_, _ := url.Parse(rawUrl)
-
-		tests = append(tests, test{
-			name: "default usage",
-			args: args{
-				rawUrl,
-				rawPath,
-				nil,
-			},
-			want: &Download{
-				URL:  url_,
-				Path: path.Join(rawPath, "test1Mb.db"),
+			want: &HTTPDownload{
+				url:  url_,
+				path: rawPath,
 			},
 			wantErr: false,
-		})
-	}
-	{
-		tests = append(tests, test{
-			name: "parse file in non-existent dir",
-			args: args{
-				"http://speedtest.ftp.otenet.gr/files/test1Mb.db",
-				path.Join(tmpDir, "nonExistentDir/file.db"),
-				nil,
-			},
-			wantErr: true,
 		})
 	}
 	{
@@ -80,13 +48,13 @@ func TestNewDownload(t *testing.T) {
 		os.Create(rawPath)
 
 		tests = append(tests, test{
-			name: "parse existing file in non-existent dir",
+			name: "Try create download that write to existing file",
 			args: args{
 				"http://speedtest.ftp.otenet.gr/files/test1Mb.db",
 				rawPath,
-				nil,
 			},
 			wantErr: true,
+			want:    nil,
 		})
 	}
 
@@ -105,18 +73,36 @@ func TestNewDownload(t *testing.T) {
 	}
 }
 
-func TestDownload_Start(t *testing.T) {
-	// It's very heavy test, enable if need
+func TestHTTPDownload(t *testing.T) {
+	// It's very heavy test, enable only if need
 	// return
 
-	download, err := NewDownload("http://speedtest.ftp.otenet.gr/files/test1Mb.db", t.TempDir())
+	download, err := NewDownload("http://localhost/test1MB.db", t.TempDir())
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
 	download.Run()
 
-	eq, err := utils.CompareMD5Sum([]string{download.Path, "../../test/test1Mb.db"})
+	eq, err := utils.CompareMD5Sum([]string{download.Info().Path, "../../test/data/test1MB.db"})
+	if !eq {
+		t.Errorf("Downloaded and etalon files have differnt md5 sum")
+		return
+	}
+}
+
+func TestFTPDownload(t *testing.T) {
+	// It's very heavy test, enable only if need
+	// return
+
+    download, err := NewDownload("ftp://testuser:testpass@localhost/test1MB.db", t.TempDir())
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	download.Run()
+
+	eq, err := utils.CompareMD5Sum([]string{download.Info().Path, "../../test/data/test1MB.db"})
 	if !eq {
 		t.Errorf("Downloaded and etalon files have differnt md5 sum")
 		return

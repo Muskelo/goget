@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"ex.com/goget/goget/utils"
+	"github.com/jlaffaye/ftp"
 )
 
 const (
@@ -26,7 +27,7 @@ var StatusAliases map[int]string = map[int]string{
 	2:  "Finished",
 }
 
-type Download struct {
+type DownloadInfo struct {
 	URL  *url.URL
 	Path string
 
@@ -37,36 +38,71 @@ type Download struct {
 	Err    error
 }
 
-func NewDownload(rawUrl string, rawPath string) (*Download, error) {
-	URL, err := url.Parse(rawUrl)
+type Download interface {
+	Run()
+	Info() DownloadInfo
+}
+
+func NewDownload(rawUrl string, rawPath string) (Download, error) {
+	url_, err := url.Parse(rawUrl)
 	if err != nil {
 		return nil, err
 	}
-	if URL.Scheme != "http" && URL.Scheme != "https" {
-		return nil, fmt.Errorf("unsupported protocol '%v'", URL.Scheme)
-	}
 
-	var Path string
+	var path_ string
 	if utils.DirExist(rawPath) {
-		Path = path.Join(rawPath, path.Base(URL.Path))
+		path_ = path.Join(rawPath, path.Base(url_.Path))
 	} else {
-		Path = rawPath
-		if !utils.ParentDirExist(Path) {
-			return nil, fmt.Errorf("parent dir of %v not exist", Path)
-		}
+		path_ = rawPath
 	}
-	if utils.FileExist(Path) {
-		return nil, fmt.Errorf("file %v exist", Path)
+	if utils.FileExist(path_) {
+		return nil, fmt.Errorf("file %v exist", path_)
 	}
 
-	return &Download{URL: URL, Path: Path}, nil
+	switch url_.Scheme {
+	case "http", "https":
+		return NewHTTPDownload(url_, path_), nil
+	case "ftp":
+		return NewFTPDownload(url_, path_), nil
+	default:
+		return nil, fmt.Errorf("unsupported protocol '%v'", url_.Scheme)
+	}
 }
 
-func (dl *Download) setErr(err error) {
-	dl.Err = err
-	dl.Status = ErrStatus
+// HTTPDownload
+// download from web
+type HTTPDownload struct {
+	url  *url.URL
+	path string
+
+	size     int64
+	progress int64
+
+	status int
+	err    error
 }
-func (dl *Download) stream(r io.Reader, w io.Writer) error {
+
+func NewHTTPDownload(url_ *url.URL, path_ string) *HTTPDownload {
+	return &HTTPDownload{url: url_, path: path_}
+}
+
+func (dl *HTTPDownload) setErr(err error) {
+	dl.err = err
+	dl.status = ErrStatus
+}
+
+func (dl *HTTPDownload) Info() DownloadInfo {
+	return DownloadInfo{
+		URL:      dl.url,
+		Path:     dl.path,
+		Size:     dl.size,
+		Progress: dl.progress,
+		Status:   dl.status,
+		Err:      dl.err,
+	}
+}
+
+func (dl *HTTPDownload) stream(r io.Reader, w io.Writer) error {
 	quit := false
 
 	for !quit {
@@ -84,22 +120,22 @@ func (dl *Download) stream(r io.Reader, w io.Writer) error {
 			return err
 		}
 
-		dl.Progress += int64(writed)
+		dl.progress += int64(writed)
 	}
 	return nil
 }
-func (dl *Download) Run() {
-	dl.Status = InProgresStatus
+func (dl *HTTPDownload) Run() {
+	dl.status = InProgresStatus
 
-	res, err := http.Get(dl.URL.String())
+	res, err := http.Get(dl.url.String())
 	if err != nil {
 		dl.setErr(err)
 		return
 	}
 	defer res.Body.Close()
-	dl.Size = res.ContentLength
+	dl.size = res.ContentLength
 
-	file, err := os.Create(dl.Path)
+	file, err := os.Create(dl.path)
 	if err != nil {
 		dl.setErr(err)
 		return
@@ -111,17 +147,123 @@ func (dl *Download) Run() {
 		dl.setErr(err)
 	}
 
-	dl.Status = FinishedStatus
+	dl.status = FinishedStatus
 }
 
+// FTPDownload
+// download from ftp server
+type FTPDownload struct {
+	url  *url.URL
+	path string
+
+	size     int64
+	progress int64
+
+	status int
+	err    error
+}
+
+func NewFTPDownload(url_ *url.URL, path_ string) *FTPDownload {
+	// set default port in not present
+	if url_.Port() == "" {
+		url_.Host = fmt.Sprintf("%v:%v", url_.Host, 21)
+	}
+	return &FTPDownload{url: url_, path: path_}
+}
+
+func (dl *FTPDownload) setErr(err error) {
+	dl.err = err
+	dl.status = ErrStatus
+}
+
+func (dl *FTPDownload) Info() DownloadInfo {
+	return DownloadInfo{
+		URL:      dl.url,
+		Path:     dl.path,
+		Size:     dl.size,
+		Progress: dl.progress,
+		Status:   dl.status,
+		Err:      dl.err,
+	}
+}
+
+func (dl *FTPDownload) getFromFTP() (*ftp.Response, error) {
+	conn, err := ftp.Dial(dl.url.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	user := dl.url.User.Username()
+	pass, _ := dl.url.User.Password()
+	if err := conn.Login(user, pass); err != nil {
+		return nil, err
+	}
+
+	dl.size, err = conn.FileSize(dl.url.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn.Retr(dl.url.Path)
+}
+func (dl *FTPDownload) stream(r io.Reader, w io.Writer) error {
+	quit := false
+
+	for !quit {
+		buf := make([]byte, 16384)
+
+		readed, err := r.Read(buf)
+		if err == io.EOF {
+			quit = true
+		} else if err != nil {
+			return err
+		}
+
+		writed, err := w.Write(buf[:readed])
+		if err != nil {
+			return err
+		}
+
+		dl.progress += int64(writed)
+	}
+	return nil
+}
+func (dl *FTPDownload) Run() {
+	dl.status = InProgresStatus
+
+	res, err := dl.getFromFTP()
+	if err != nil {
+		dl.setErr(err)
+		return
+	}
+	defer res.Close()
+
+	file, err := os.Create(dl.path)
+	if err != nil {
+		dl.setErr(err)
+		return
+	}
+	defer file.Close()
+
+	err = dl.stream(res, file)
+	if err != nil {
+		dl.setErr(err)
+	}
+
+	dl.status = FinishedStatus
+}
+
+// DownloadManager
+// control downloads
 type DownloadManager struct {
 	Status    int
-	Downloads []*Download
+	Downloads []Download
 }
 
 func NewDownloadManager(args []string) (*DownloadManager, error) {
 	cmd := &DownloadManager{}
 	err := cmd.addDownloads(args)
+
 	return cmd, err
 }
 func (manger *DownloadManager) addDownloads(args []string) error {
@@ -157,7 +299,7 @@ func (manager *DownloadManager) Run() {
 
 	for _, download := range manager.Downloads {
 		wg.Add(1)
-		go func(download *Download) {
+		go func(download Download) {
 			defer wg.Done()
 			download.Run()
 		}(download)

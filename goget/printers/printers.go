@@ -33,14 +33,15 @@ func (printer *StringPrinter) getDownloadManagerStatus(manager *dl.DownloadManag
 	status := dl.StatusAliases[manager.Status]
 	lines := []string{status}
 	for i, download := range manager.Downloads {
-		lines = append(lines, fmt.Sprintf("#%v Download from %v to %v", i, download.URL, download.Path))
-		switch download.Status {
+		info := download.Info()
+		lines = append(lines, fmt.Sprintf("#%v Download from %v to %v", i, info.URL, info.Path))
+		switch info.Status {
 		case dl.InProgresStatus:
-			lines = append(lines, fmt.Sprintf("Downloading %v/%v bytes", download.Progress, download.Size))
+			lines = append(lines, fmt.Sprintf("Downloading %v/%v bytes", info.Progress, info.Size))
 		case dl.FinishedStatus:
-			lines = append(lines, fmt.Sprintf("Downloaded %v bytes", download.Size))
+			lines = append(lines, fmt.Sprintf("Downloaded %v bytes", info.Size))
 		case dl.ErrStatus:
-			lines = append(lines, fmt.Sprintf("Err: %v", download.Err))
+			lines = append(lines, fmt.Sprintf("Err: %v", info.Err))
 		case dl.CreatedStatus:
 			lines = append(lines, "Download created")
 		}
@@ -107,13 +108,14 @@ func (printer *JsonPrinter) getDownloadManagerStatus(manager *dl.DownloadManager
 		StatusAlias: dl.StatusAliases[manager.Status],
 	}
 	for _, download := range manager.Downloads {
+		info := download.Info()
 		downloadScheme := DownloadScheme{
-			URL:         download.URL.String(),
-			Path:        download.Path,
-			Status:      download.Status,
-			StatusAlias: dl.StatusAliases[download.Status],
-			Size:        download.Size,
-			Progress:    download.Progress,
+			URL:         info.URL.String(),
+			Path:        info.Path,
+			Status:      info.Status,
+			StatusAlias: dl.StatusAliases[info.Status],
+			Size:        info.Size,
+			Progress:    info.Progress,
 		}
 		managerScheme.Downloads = append(managerScheme.Downloads, downloadScheme)
 	}
