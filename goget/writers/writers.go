@@ -8,6 +8,8 @@ import (
 	"github.com/gosuri/uilive"
 )
 
+// Writer interface
+// write in a certain output
 type Writer interface {
 	Start()
 	Stop()
@@ -16,6 +18,7 @@ type Writer interface {
 	Writeln(a ...any)
 }
 
+// ConsoleWriter
 // Write to console using uilive writer
 type ConsoleWriter struct {
 	uiliveWriter *uilive.Writer
@@ -27,6 +30,7 @@ func NewConsoleWriter() *ConsoleWriter {
 	w.uiliveWriter.RefreshInterval = time.Minute
 	return w
 }
+
 func (w *ConsoleWriter) Start() {
 	w.uiliveWriter.Start()
 }
@@ -56,6 +60,7 @@ func (w *ConsoleWriter) Writeln(a ...any) {
 	w.uiliveWriter.Flush()
 }
 
+// QuiteWriter
 // Don't write anything
 type QuiteWriter struct {
 }
@@ -64,6 +69,7 @@ func NewQuiteWriter() *QuiteWriter {
 	w := &QuiteWriter{}
 	return w
 }
+
 func (w *QuiteWriter) Start() {
 }
 func (w *QuiteWriter) Stop() {
@@ -76,6 +82,7 @@ func (w *QuiteWriter) Writef(format string, a ...any) {
 func (w *QuiteWriter) Writeln(a ...any) {
 }
 
+// FileWriter
 // Write to file
 type FileWriter struct {
 	FN   string
@@ -103,9 +110,7 @@ func (w *FileWriter) cleanFile() {
 	if _, err := w.file.Seek(0, 0); err != nil {
 		panic(err)
 	}
-
 }
-
 func (w *FileWriter) Write(a ...any) {
 	w.cleanFile()
 	_, err := w.file.WriteString(fmt.Sprint(a...))

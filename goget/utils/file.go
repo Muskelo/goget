@@ -8,6 +8,9 @@ import (
 )
 
 // copyed from internet
+// use in test to check downloaded file
+
+
 func GetMD5SumString(fn string) (string, error) {
 	f, err := os.Open(fn)
 	if err != nil {

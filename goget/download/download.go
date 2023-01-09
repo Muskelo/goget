@@ -38,6 +38,8 @@ type DownloadInfo struct {
 	Err    error
 }
 
+// Download interface
+// download something
 type Download interface {
 	Run()
 	Info() DownloadInfo
@@ -70,7 +72,7 @@ func NewDownload(rawUrl string, rawPath string) (Download, error) {
 }
 
 // HTTPDownload
-// download from web
+// download using http
 type HTTPDownload struct {
 	url  *url.URL
 	path string
@@ -151,7 +153,7 @@ func (dl *HTTPDownload) Run() {
 }
 
 // FTPDownload
-// download from ftp server
+// download using ftp
 type FTPDownload struct {
 	url  *url.URL
 	path string
@@ -187,7 +189,8 @@ func (dl *FTPDownload) Info() DownloadInfo {
 	}
 }
 
-func (dl *FTPDownload) getFromFTP() (*ftp.Response, error) {
+// get response from ftp
+func (dl *FTPDownload) FTPGet() (*ftp.Response, error) {
 	conn, err := ftp.Dial(dl.url.Host)
 	if err != nil {
 		return nil, err
@@ -231,7 +234,7 @@ func (dl *FTPDownload) stream(r io.Reader, w io.Writer) error {
 func (dl *FTPDownload) Run() {
 	dl.status = InProgresStatus
 
-	res, err := dl.getFromFTP()
+	res, err := dl.FTPGet()
 	if err != nil {
 		dl.setErr(err)
 		return
@@ -262,11 +265,10 @@ type DownloadManager struct {
 
 func NewDownloadManager(args []string) (*DownloadManager, error) {
 	cmd := &DownloadManager{}
-	err := cmd.addDownloads(args)
-
+	err := cmd.parseArgs(args)
 	return cmd, err
 }
-func (manger *DownloadManager) addDownloads(args []string) error {
+func (manger *DownloadManager) parseArgs(args []string) error {
 	argsLen := len(args)
 	switch {
 	case argsLen == 0:

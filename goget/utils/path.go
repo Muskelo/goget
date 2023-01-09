@@ -5,6 +5,8 @@ import (
 	"path"
 )
 
+// using to validate and parse filepath from string
+
 func DirExist(name string) bool {
 	stat, err := os.Stat(name)
 	if err != nil {
@@ -23,4 +25,3 @@ func FileExist(name string) bool {
 	}
 	return !stat.IsDir()
 }
-

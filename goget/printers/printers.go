@@ -10,12 +10,19 @@ import (
 	"ex.com/goget/goget/writers"
 )
 
+// Printer
+// print in a certain format
 type Printer interface {
+	// write err info
 	Err(error)
+	// write msg
 	Msg(string)
+	// parse and write info until download finisged
 	WatchDownloadManager(*dl.DownloadManager)
 }
 
+// StringPrinter
+// Print in text format
 type StringPrinter struct {
 	w writers.Writer
 }
@@ -23,10 +30,6 @@ type StringPrinter struct {
 func NewStringPrinter(w writers.Writer) *StringPrinter {
 	printer := &StringPrinter{w}
 	return printer
-}
-
-func (printer *StringPrinter) Err(err error) {
-	printer.w.Writef("Err: %v\n", err)
 }
 
 func (printer *StringPrinter) getDownloadManagerStatus(manager *dl.DownloadManager) string {
@@ -63,6 +66,9 @@ func (printer *StringPrinter) WatchDownloadManager(manager *dl.DownloadManager) 
 func (printer *StringPrinter) Msg(help string) {
 	printer.w.Write(help)
 }
+func (printer *StringPrinter) Err(err error) {
+	printer.w.Writef("Err: %v\n", err)
+}
 
 // Schemes to json printer
 type ErrorScheme struct {
@@ -85,6 +91,8 @@ type DownloadManagerScheme struct {
 	Downloads []DownloadScheme `json:"downloads"`
 }
 
+// JsonPrinter
+// print in json format
 type JsonPrinter struct {
 	w writers.Writer
 }

@@ -13,8 +13,8 @@ import (
 type CommonFlags struct {
 	Help           bool
 	OutputDisabled bool
-	OutputFormat   string
 	OutputFile     string
+	OutputFormat   string
 }
 
 var (
@@ -72,11 +72,10 @@ func getPrinter(w writers.Writer) printers.Printer {
 func Run(args []string) {
 	restArgs, err := parseFlags(args)
 
-	w := getWriter()
-	w.Start()
-	defer w.Stop()
-
-	printer := getPrinter(w)
+	writer := getWriter()
+	writer.Start()
+	defer writer.Stop()
+	printer := getPrinter(writer)
 
 	if err == ErrNoInput || Flags.Help {
 		printer.Msg(helpMsg)
